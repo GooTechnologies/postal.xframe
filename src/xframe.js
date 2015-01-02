@@ -82,23 +82,22 @@ var XFRAME = "xframe",
 				_envIsWorker);
 		},
 		send: function( packingSlip ) {
-			var args;
 			var context;
+			var wrapForTransport;
+			var _this = this;
+
 			if ( this.shouldProcess() ) {
 				context = _envIsWorker ? null : this.target;
-				args = [ postal.fedx.transports[ XFRAME ].wrapForTransport( packingSlip ) ];
-				if ( !this.options.isWorker && !_envIsWorker ) {
-					args.push( this.options.origin );
-				}
-				if ( !_envIsWorker ) {
-					if ( args.length === 1 ) {
-						this.target.postMessage( args[ 0 ] );
+				wrapForTransport = postal.fedx.transports[ XFRAME ].wrapForTransport;
+				wrapForTransport( packingSlip, function(wrappedPackingSlip) {
+					var origin = ( !_this.options.isWorker && !_envIsWorker ) ? _this.options.origin : null;
+
+					if ( !_envIsWorker ) {
+						_this.target.postMessage(wrappedPackingSlip, origin);
 					} else {
-						this.target.postMessage( args[ 0 ], args[ 1 ] );
+						_this.target.postMessage.apply( context, [wrappedPackingSlip, origin] );
 					}
-				} else {
-					this.target.postMessage.apply( context, args );
-				}
+				});
 			}
 		}
 	}, {
@@ -157,49 +156,52 @@ var XFRAME = "xframe",
 			return targets.concat( _workers );
 		},
 		remotes: [],
-		wrapForTransport: useEagerSerialize ? function( packingSlip ) {
-			return JSON.stringify( {
+		wrapForTransport: useEagerSerialize ? function( packingSlip, callback ) {
+			callback( JSON.stringify( {
 				postal: true,
 				packingSlip: packingSlip
-			} );
-		} : function( packingSlip ) {
-			return {
+			} ));
+		} : function( packingSlip, callback ) {
+			callback( {
 				postal: true,
 				packingSlip: packingSlip
-			};
+			});
 		},
 		/* jshint ignore:start */
-		unwrapFromTransport: function( msgData ) {
-
+		unwrapFromTransport: function( msgData, callback ) {
+			var result;
 			if ( typeof msgData === "string" && ( useEagerSerialize || msgData.indexOf( '"postal":true' ) !== -1 ) ) {
 				try {
-					return JSON.parse( msgData );
+					result = JSON.parse( msgData );
 				} catch (ex) {
-					return {};
+					result = {};
 				}
 			} else {
-				return msgData;
+				result = msgData;
 			}
 
+			callback(result);
 		},
 		/* jshint ignore:end */
 		routeMessage: function( event ) {
 			// source = remote window or worker?
 			var source = event.source || event.currentTarget;
-			var parsed = this.unwrapFromTransport( event.data );
-			if ( parsed.postal ) {
-				if ( postal.instanceId() === "worker" ) {
-					console.log( "parsed: " + JSON.stringify( parsed ) );
+			var _this = this;
+			this.unwrapFromTransport( event.data, function( parsed ) {
+				if ( parsed.postal ) {
+					if ( postal.instanceId() === "worker" ) {
+						console.log( "parsed: " + JSON.stringify( parsed ) );
+					}
+					var remote = _.find( _this.remotes, function( x ) {
+						return x.target === source;
+					} );
+					if ( !remote ) {
+						remote = XFrameClient.getInstance( source, event.origin, parsed.packingSlip.instanceId );
+						_this.remotes.push( remote );
+					}
+					remote.onMessage( parsed.packingSlip );
 				}
-				var remote = _.find( this.remotes, function( x ) {
-					return x.target === source;
-				} );
-				if ( !remote ) {
-					remote = XFrameClient.getInstance( source, event.origin, parsed.packingSlip.instanceId );
-					this.remotes.push( remote );
-				}
-				remote.onMessage( parsed.packingSlip );
-			}
+			});
 		},
 		sendMessage: function( env ) {
 			var envelope = env;
