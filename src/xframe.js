@@ -89,13 +89,17 @@ var XFRAME = "xframe",
 			if ( this.shouldProcess() ) {
 				context = _envIsWorker ? null : this.target;
 				wrapForTransport = postal.fedx.transports[ XFRAME ].wrapForTransport;
+
 				wrapForTransport( packingSlip, function(wrappedPackingSlip) {
+
 					var origin = ( !_this.options.isWorker && !_envIsWorker ) ? _this.options.origin : null;
+					var envelope = !useEagerSerialize ? wrappedPackingSlip.packingSlip.envelope : null;
+					var transferables = envelope ? envelope.transferables : null;
 
 					if ( !_envIsWorker ) {
-						_this.target.postMessage(wrappedPackingSlip, origin);
+						_this.target.postMessage(wrappedPackingSlip, origin, transferables);
 					} else {
-						_this.target.postMessage.apply( context, [wrappedPackingSlip, origin] );
+						_this.target.postMessage.apply( context, [wrappedPackingSlip, origin, transferables] );
 					}
 				});
 			}
