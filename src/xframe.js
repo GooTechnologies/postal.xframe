@@ -94,7 +94,7 @@ var XFRAME = "xframe",
 
 					var origin = ( !_this.options.isWorker && !_envIsWorker ) ? _this.options.origin : null;
 					var envelope = !useEagerSerialize ? wrappedPackingSlip.packingSlip.envelope : null;
-					var transferables = envelope ? envelope.transferables : null;
+					var transferables = envelope ? envelope.transferables : undefined;
 
 					if ( !_envIsWorker ) {
 						_this.target.postMessage(wrappedPackingSlip, origin, transferables);
