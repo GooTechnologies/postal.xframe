@@ -22,20 +22,22 @@ export default class XFrameClient extends postal.fedx.FederationClient {
 
 	send( packingSlip ) {
 		if ( this.shouldProcess() ) {
-			const context = env.isWorker ? null : this.target;
-			const args = [ postal.fedx.transports.xframe.wrapForTransport( packingSlip ) ];
-			if ( !this.options.isWorker && !env.isWorker ) {
-				args.push( this.options.origin );
-			}
-			if ( !env.isWorker ) {
-				if ( args.length === 1 ) {
-					this.target.postMessage( args[0] );
+			const target = this.target;
+			const options = this.options;
+
+			postal.fedx.transports.xframe.wrapForTransportAsync( packingSlip, function( wrappedPackingSlip ) {
+				const origin = ( options.isWorker || env.isWorker ) ? null : options.origin;
+
+				const envelope = !env.useEagerSerialize ? wrappedPackingSlip.packingSlip.envelope : null;
+				const transferables = envelope ? envelope.transferables : null;
+
+				if ( env.isWorker ) {
+					const context = env.isWorker ? null : target;
+					target.postMessage.call( context, wrappedPackingSlip, origin, transferables );
 				} else {
-					this.target.postMessage( args[0], args[1] );
+					target.postMessage( wrappedPackingSlip, origin, transferables );
 				}
-			} else {
-				this.target.postMessage.apply( context, args );
-			}
+			} );
 		}
 	}
 }

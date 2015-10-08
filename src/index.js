@@ -88,6 +88,9 @@ const plugin = postal.fedx.transports.xframe = {
 			packingSlip: packingSlip
 		};
 	},
+	wrapForTransportAsync: function( packingSlip, callback ) {
+		callback( this.wrapForTransport( packingSlip ) );
+	},
 	unwrapFromTransport: function( msgData ) {
 		if ( typeof msgData === "string" && ( env.useEagerSerialize || msgData.indexOf( '"postal":true' ) !== -1 ) ) {
 			try {
@@ -99,20 +102,24 @@ const plugin = postal.fedx.transports.xframe = {
 			return msgData;
 		}
 	},
+	unwrapFromTransportAsync: function( packingSlip, callback ) {
+		callback( this.unwrapFromTransport( packingSlip ) );
+	},
 	routeMessage: function( event ) {
 		// source = remote window or worker?
 		const source = event.source || event.currentTarget;
-		const parsed = this.unwrapFromTransport( event.data );
-		if ( parsed.postal ) {
-			var remote = _.find( this.remotes, function( x ) {
-				return x.target === source;
-			} );
-			if ( !remote ) {
-				remote = XFrameClient.getInstance( source, event.origin, parsed.packingSlip.instanceId );
-				this.remotes.push( remote );
+		const remotes = this.remotes;
+
+		this.unwrapFromTransportAsync( event.data, function( parsed ) {
+			if ( parsed.postal ) {
+				let remote = _.find( remotes, _.matchesProperty( "target", source ) );
+				if ( !remote ) {
+					remote = XFrameClient.getInstance( source, event.origin, parsed.packingSlip.instanceId );
+					remotes.push( remote );
+				}
+				remote.onMessage( parsed.packingSlip );
 			}
-			remote.onMessage( parsed.packingSlip );
-		}
+		} );
 	},
 	sendMessage: function( env ) {
 		let envelope = env;
