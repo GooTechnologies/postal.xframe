@@ -29,7 +29,7 @@ export default class XFrameClient extends postal.fedx.FederationClient {
 				const origin = ( options.isWorker || env.isWorker ) ? null : options.origin;
 
 				const envelope = !env.useEagerSerialize ? wrappedPackingSlip.packingSlip.envelope : null;
-				const transferables = envelope ? envelope.transferables : null;
+				const transferables = envelope ? envelope.transferables : undefined;
 
 				if ( env.isWorker ) {
 					const context = env.isWorker ? null : target;
