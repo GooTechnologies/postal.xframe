@@ -112,7 +112,7 @@ const plugin = postal.fedx.transports.xframe = {
 
 		this.unwrapFromTransportAsync( event.data, function( parsed ) {
 			if ( parsed.postal ) {
-				let remote = _.find( remotes, function ( x ) {
+				let remote = _.find( remotes, function( x ) {
 					return x.target === source;
 				} );
 				if ( !remote ) {
